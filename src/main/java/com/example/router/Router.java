@@ -1,4 +1,4 @@
-package com.example.router;
+package com.koala.gateway.util;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -23,6 +23,8 @@ public class Router {
                 for (int i = 0; i < strings.length; i++) {
                     String segment = strings[i];
                     node = addNode(node, segment);
+                    if ("**".equals(segment))
+                        break;
                 }
                 node.path = path;
             }
@@ -39,7 +41,7 @@ public class Router {
                 for (int i = 0; i < strings.length; i++) {
                     String segment = strings[i];
                     node = matchNode(node, segment);
-                    if (node == null)
+                    if (node == null || node.isWildcard)
                         break;
                 }
                 if (node != null)
@@ -50,20 +52,28 @@ public class Router {
     }
 
     private Node addNode(Node node, String segment) {
-        Node childNode = new Node();
-        childNode.segment = segment;
-
         if ("**".equals(segment)) {
-            node.wildcard = childNode;
-        } else if (segment.startsWith("{") && segment.endsWith("}")) {
+            node.isWildcard = true;
+            return node;
+        }
+        if (segment.startsWith("{") && segment.endsWith("}")) {
+            Node childNode = new Node();
+            childNode.segment = segment;
             node.dynamicRouter = childNode;
-        } else {
-            if (node.staticRouters == null)
-                node.staticRouters = new HashMap<>();
-            if (node.staticRouters.containsKey(segment))
-                childNode = node.staticRouters.get(segment);
-            else
-                node.staticRouters.put(segment, childNode);
+            return childNode;
+        }
+
+        Node childNode;
+
+        if (node.staticRouters == null)
+            node.staticRouters = new HashMap<>();
+        if (node.staticRouters.containsKey(segment))
+            childNode = node.staticRouters.get(segment);
+        else {
+            childNode = new Node();
+            childNode.segment = segment;
+            node.dynamicRouter = childNode;
+            node.staticRouters.put(segment, childNode);
         }
         return childNode;
     }
@@ -74,8 +84,8 @@ public class Router {
         }
         if (node.dynamicRouter != null)
             return node.dynamicRouter;
-        if (node.wildcard != null)
-            return node.wildcard;
+        if (node.isWildcard)
+            return node;
         return null;
     }
 
@@ -85,6 +95,6 @@ public class Router {
         private String segment;
         private Map<String, Node> staticRouters;
         private Node dynamicRouter;
-        private Node wildcard;
+        private boolean isWildcard;
     }
 }
